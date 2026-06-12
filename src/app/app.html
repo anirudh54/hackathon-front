@@ -1,0 +1,103 @@
+<div class="app">
+  <!-- ===== Dashboard ===== -->
+  <section
+    class="dashboard"
+    [class.dashboard--drag]="dragOver()"
+    (dragover)="$event.preventDefault(); dragOver.set(true)"
+    (dragleave)="dragOver.set(false)"
+    (drop)="onDrop($event)"
+  >
+    <header class="dashboard__head">
+      <div>
+        <h1>AI Insights Dashboard</h1>
+        <p>Upload an Excel file, then ask the assistant for charts.</p>
+      </div>
+
+      <div class="toolbar">
+        @if (fileName()) {
+          <span class="badge badge--ok">● {{ fileName() }} · {{ rows().length }} rows</span>
+        } @else {
+          <span class="badge badge--idle">No data loaded</span>
+        }
+        <label class="btn">
+          Upload
+          <input type="file" accept=".xlsx,.xls,.csv" hidden (change)="onFileInput($event)" />
+        </label>
+        <button class="btn btn--ghost" (click)="loadSample()">Use sample</button>
+      </div>
+    </header>
+
+    @if (kpis().length) {
+      <div class="kpis">
+        @for (kpi of kpis(); track kpi.label) {
+          <div class="kpi">
+            <span class="kpi__label">{{ kpi.label }}</span>
+            <span class="kpi__value">{{ kpi.value }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (charts().length) {
+      <div class="charts">
+        @for (chart of charts(); track $index) {
+          <app-chart-card [spec]="chart" />
+        }
+      </div>
+    } @else {
+      <div class="empty">
+        <div class="empty__icon">{{ hasData() ? '💬' : '📂' }}</div>
+        @if (hasData()) {
+          <h2>Ready when you are</h2>
+          <p>Ask for a chart to get started:</p>
+          <div class="empty__chips">
+            @for (s of suggestions; track s) {
+              <button class="chip" (click)="useSuggestion(s)">{{ s }}</button>
+            }
+          </div>
+        } @else {
+          <h2>Drop an Excel file here</h2>
+          <p>…or use the Upload button, or try the sample dataset.</p>
+          <button class="chip chip--primary" (click)="loadSample()">Load sample data</button>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ===== Chat panel ===== -->
+  <aside class="chat">
+    <div class="chat__head">
+      <div class="chat__avatar">AI</div>
+      <div>
+        <strong>Data Assistant</strong>
+        <span>Powered by Gemini</span>
+      </div>
+    </div>
+
+    <div class="chat__log">
+      @for (m of messages(); track $index) {
+        <div class="bubble" [class.bubble--user]="m.role === 'user'">{{ m.text }}</div>
+      }
+      @if (loading()) {
+        <div class="bubble bubble--typing">
+          <span></span><span></span><span></span>
+        </div>
+      }
+    </div>
+
+    <form class="chat__input" (ngSubmit)="send()">
+      <input
+        type="text"
+        placeholder="Ask about your data…"
+        [ngModel]="draft()"
+        (ngModelChange)="draft.set($event)"
+        name="draft"
+        autocomplete="off"
+        [disabled]="loading()"
+      />
+      <button type="submit" [disabled]="loading() || !draft().trim()" aria-label="Send">
+        ➤
+      </button>
+    </form>
+  </aside>
+</div>
