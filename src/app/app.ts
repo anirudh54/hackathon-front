@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ChartCard } from './chart-card/chart-card';
-import { DataRow, RenderedChart, Schema, ChatMessage } from './models/chat.model';
+import { ChartSpec, DataRow, RenderedChart, Schema, ChatMessage } from './models/chat.model';
 import { ChatService } from './services/chat.service';
 import { ExcelService, SAMPLE_DATA } from './services/excel.service';
 
@@ -131,9 +131,14 @@ export class App {
     this.chat.send(message, this.schema()).subscribe({
       next: (res) => {
         if (res.type === 'chart') {
-          const rendered = this.excel.aggregate(this.rows(), res);
+          let rows = this.rows();
+          if (res.constraints) {
+            rows = this.excel.applyConstraints(rows, res.constraints);
+          }
+          const rendered = this.excel.aggregate(rows, res);
           this.charts.update((c) => [...c, rendered]);
-          this.botSay(`Here's "${rendered.title}" — added to your dashboard. 📊`);
+          const constraintNote = this.describeConstraints(res);
+          this.botSay(`Here's "${rendered.title}"${constraintNote} — added to your dashboard. 📊`);
         } else {
           this.botSay(res.reply);
         }
@@ -148,6 +153,23 @@ export class App {
 
   private botSay(text: string): void {
     this.messages.update((m) => [...m, { role: 'bot', text }]);
+  }
+
+  private describeConstraints(spec: ChartSpec): string {
+    const parts: string[] = [];
+    if (spec.constraints?.filters?.length) {
+      const descs = spec.constraints.filters.map(
+        (f) => `${f.column} ${f.op} ${f.value}`,
+      );
+      parts.push(`filtered by ${descs.join(', ')}`);
+    }
+    if (spec.constraints?.sort) {
+      parts.push(`sorted by ${spec.constraints.sort.column} ${spec.constraints.sort.direction}`);
+    }
+    if (spec.constraints?.limit) {
+      parts.push(`limited to ${spec.constraints.limit} rows`);
+    }
+    return parts.length ? ` (${parts.join('; ')})` : '';
   }
 
   private fmt(n: number): string {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { ChatRequest, ChatResponse, ChartSpec } from '../types.js';
+import type { ChatRequest, ChatResponse, ChartSpec, DataConstraints, Filter, Sort } from '../types.js';
 import { routeWithGemini, askGemini } from '../services/gemini.service.js';
 import { getSchema } from '../services/excel.service.js';
 
@@ -45,6 +45,29 @@ router.post('/chat', async (req, res) => {
         return;
       }
 
+      const allColumns = [...categorical, ...numeric];
+
+      // Build constraints from Gemini's optional filter/sort/limit output
+      const constraints: DataConstraints = {};
+      if (route.filters?.length) {
+        constraints.filters = route.filters.map((f): Filter => ({
+          column: matchColumn(f.column, allColumns, f.column),
+          op: f.op as Filter['op'],
+          value: f.value,
+        }));
+      }
+      if (route.sort) {
+        constraints.sort = {
+          column: matchColumn(route.sort.column, allColumns, route.sort.column),
+          direction: route.sort.direction as Sort['direction'],
+        };
+      }
+      if (route.limit != null && route.limit > 0) {
+        constraints.limit = route.limit;
+      }
+
+      const hasConstraints = constraints.filters || constraints.sort || constraints.limit;
+
       const spec: ChartSpec = {
         type: 'chart',
         chartType: route.chartType ?? 'bar',
@@ -52,6 +75,7 @@ router.post('/chat', async (req, res) => {
         measure: matchColumn(route.measure ?? '', numeric, numeric[0]),
         agg: route.agg ?? 'sum',
         title: `${matchColumn(route.measure ?? '', numeric, numeric[0])} by ${matchColumn(route.groupBy ?? '', categorical, categorical[0])}`,
+        ...(hasConstraints ? { constraints } : {}),
       };
 
       res.json(spec);

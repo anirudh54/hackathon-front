@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import * as XLSX from 'xlsx';
-import { AggType, ChartSpec, DataRow, RenderedChart, Schema } from '../models/chat.model';
+import { AggType, ChartSpec, DataConstraints, DataRow, Filter, RenderedChart, Schema } from '../models/chat.model';
 
 /**
  * Stateless helpers for the schema-only flow: parse a spreadsheet into rows,
@@ -73,6 +73,72 @@ export class ExcelService {
         result = nums.reduce((a, b) => a + b, 0);
     }
     return Math.round(result * 100) / 100;
+  }
+
+  /** Applies filters, sort, and limit to rows before aggregation. */
+  applyConstraints(rows: DataRow[], constraints: DataConstraints): DataRow[] {
+    let result = [...rows];
+
+    // Apply filters
+    if (constraints.filters?.length) {
+      for (const f of constraints.filters) {
+        result = result.filter((row) => this.matchFilter(row, f));
+      }
+    }
+
+    // Apply sort
+    if (constraints.sort) {
+      const { column, direction } = constraints.sort;
+      result.sort((a, b) => {
+        const va = a[column];
+        const vb = b[column];
+        const na = Number(va);
+        const nb = Number(vb);
+        let cmp: number;
+        if (!isNaN(na) && !isNaN(nb)) {
+          cmp = na - nb;
+        } else {
+          cmp = String(va ?? '').localeCompare(String(vb ?? ''));
+        }
+        return direction === 'desc' ? -cmp : cmp;
+      });
+    }
+
+    // Apply limit
+    if (constraints.limit != null && constraints.limit > 0) {
+      result = result.slice(0, constraints.limit);
+    }
+
+    return result;
+  }
+
+  private matchFilter(row: DataRow, f: Filter): boolean {
+    const raw = row[f.column];
+    const filterVal = f.value;
+
+    // Try numeric comparison first
+    const rowNum = Number(raw);
+    const filterNum = Number(filterVal);
+    const bothNumeric = !isNaN(rowNum) && !isNaN(filterNum);
+
+    switch (f.op) {
+      case 'eq':
+        return bothNumeric ? rowNum === filterNum : String(raw) === String(filterVal);
+      case 'neq':
+        return bothNumeric ? rowNum !== filterNum : String(raw) !== String(filterVal);
+      case 'gt':
+        return bothNumeric ? rowNum > filterNum : String(raw) > String(filterVal);
+      case 'gte':
+        return bothNumeric ? rowNum >= filterNum : String(raw) >= String(filterVal);
+      case 'lt':
+        return bothNumeric ? rowNum < filterNum : String(raw) < String(filterVal);
+      case 'lte':
+        return bothNumeric ? rowNum <= filterNum : String(raw) <= String(filterVal);
+      case 'contains':
+        return String(raw ?? '').toLowerCase().includes(String(filterVal).toLowerCase());
+      default:
+        return true;
+    }
   }
 
   private aggLabel(agg: AggType): string {

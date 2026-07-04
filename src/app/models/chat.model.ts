@@ -8,6 +8,23 @@
 export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut';
 export type AggType = 'sum' | 'avg' | 'count' | 'min' | 'max';
 
+export interface Filter {
+  column: string;
+  op: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains';
+  value: string | number;
+}
+
+export interface Sort {
+  column: string;
+  direction: 'asc' | 'desc';
+}
+
+export interface DataConstraints {
+  filters?: Filter[];
+  sort?: Sort;
+  limit?: number;
+}
+
 /** Column names split by type, derived from the uploaded data. */
 export interface Schema {
   categorical: string[];
@@ -22,6 +39,7 @@ export interface ChartSpec {
   measure: string;
   agg: AggType;
   title: string;
+  constraints?: DataConstraints;
 }
 
 export interface TextResponse {
