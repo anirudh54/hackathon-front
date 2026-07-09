@@ -1,9 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ChartCard } from './chart-card/chart-card';
-import { ChartSpec, DataRow, RenderedChart, Schema, ChatMessage } from './models/chat.model';
+import { RenderedChart, ChatMessage } from './models/chat.model';
 import { ChatService } from './services/chat.service';
-import { ExcelService, SAMPLE_DATA } from './services/excel.service';
 
 interface Kpi {
   label: string;
@@ -11,10 +10,10 @@ interface Kpi {
 }
 
 const SUGGESTIONS = [
-  'Show me amount by region',
-  'Sales by product as a pie chart',
-  'Average amount per region as a line',
-  'Which region performs best?',
+  'Sample count by PASSFAIL',
+  'Average reported fetal fraction by gender',
+  'T21 results as a pie chart',
+  'Which phase has the most samples?',
 ];
 
 @Component({
@@ -25,22 +24,14 @@ const SUGGESTIONS = [
 })
 export class App {
   private readonly chat = inject(ChatService);
-  private readonly excel = inject(ExcelService);
 
   protected readonly suggestions = SUGGESTIONS;
-
-  // ----- Dataset state -----
-  protected readonly rows = signal<DataRow[]>([]);
-  protected readonly schema = signal<Schema | null>(null);
-  protected readonly fileName = signal<string | null>(null);
-  protected readonly dragOver = signal(false);
-  protected readonly hasData = computed(() => this.rows().length > 0);
 
   // ----- Chat / charts state -----
   protected readonly messages = signal<ChatMessage[]>([
     {
       role: 'bot',
-      text: "Hi! Upload an Excel file (or load the sample) and ask me to chart it — e.g. \"show me amount by region\".",
+      text: 'Hi! Ask me about the NIPT results data — e.g. "sample count by PASSFAIL".',
     },
   ]);
   protected readonly charts = signal<RenderedChart[]>([]);
@@ -65,50 +56,6 @@ export class App {
     ];
   });
 
-  // ----- Upload -----
-  protected onFileInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (file) this.loadFile(file);
-    input.value = ''; // allow re-uploading the same file
-  }
-
-  protected onDrop(event: DragEvent): void {
-    event.preventDefault();
-    this.dragOver.set(false);
-    const file = event.dataTransfer?.files?.[0];
-    if (file) this.loadFile(file);
-  }
-
-  protected async loadFile(file: File): Promise<void> {
-    try {
-      const rows = await this.excel.parse(file);
-      if (!rows.length) {
-        this.botSay('That file looks empty — try another sheet or file.');
-        return;
-      }
-      this.setDataset(rows, file.name);
-    } catch {
-      this.botSay("I couldn't read that file. Please upload a valid .xlsx or .csv.");
-    }
-  }
-
-  protected loadSample(): void {
-    this.setDataset([...SAMPLE_DATA], 'sample-sales.xlsx');
-  }
-
-  private setDataset(rows: DataRow[], name: string): void {
-    const schema = this.excel.deriveSchema(rows);
-    this.rows.set(rows);
-    this.schema.set(schema);
-    this.fileName.set(name);
-    this.charts.set([]); // old charts belong to the old dataset
-    this.botSay(
-      `Loaded "${name}" — ${rows.length} rows. Categories: ${schema.categorical.join(', ') || 'none'}. ` +
-        `Measures: ${schema.numeric.join(', ') || 'none'}. Ask me to chart it!`,
-    );
-  }
-
   // ----- Chat -----
   protected useSuggestion(text: string): void {
     this.draft.set(text);
@@ -122,30 +69,19 @@ export class App {
     this.messages.update((m) => [...m, { role: 'user', text: message }]);
     this.draft.set('');
 
-    if (!this.hasData()) {
-      this.botSay('Upload a file or load the sample data first, then I can chart it.');
-      return;
-    }
-
     this.loading.set(true);
-    this.chat.send(message, this.schema()).subscribe({
+    this.chat.send(message).subscribe({
       next: (res) => {
         if (res.type === 'chart') {
-          let rows = this.rows();
-          if (res.constraints) {
-            rows = this.excel.applyConstraints(rows, res.constraints);
-          }
-          const rendered = this.excel.aggregate(rows, res);
-          this.charts.update((c) => [...c, rendered]);
-          const constraintNote = this.describeConstraints(res);
-          this.botSay(`Here's "${rendered.title}"${constraintNote} — added to your dashboard. 📊`);
+          this.charts.update((c) => [...c, res]);
+          this.botSay(`Here's "${res.title}" — added to your dashboard. 📊`);
         } else {
           this.botSay(res.reply);
         }
         this.loading.set(false);
       },
       error: () => {
-        this.botSay("I couldn't reach the backend. Make sure the Spring Boot app is running on port 8080.");
+        this.botSay("I couldn't reach the backend. Make sure the Node server is running on port 3000.");
         this.loading.set(false);
       },
     });
@@ -153,23 +89,6 @@ export class App {
 
   private botSay(text: string): void {
     this.messages.update((m) => [...m, { role: 'bot', text }]);
-  }
-
-  private describeConstraints(spec: ChartSpec): string {
-    const parts: string[] = [];
-    if (spec.constraints?.filters?.length) {
-      const descs = spec.constraints.filters.map(
-        (f) => `${f.column} ${f.op} ${f.value}`,
-      );
-      parts.push(`filtered by ${descs.join(', ')}`);
-    }
-    if (spec.constraints?.sort) {
-      parts.push(`sorted by ${spec.constraints.sort.column} ${spec.constraints.sort.direction}`);
-    }
-    if (spec.constraints?.limit) {
-      parts.push(`limited to ${spec.constraints.limit} rows`);
-    }
-    return parts.length ? ` (${parts.join('; ')})` : '';
   }
 
   private fmt(n: number): string {

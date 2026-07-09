@@ -1,29 +1,14 @@
 <div class="app">
   <!-- ===== Dashboard ===== -->
-  <section
-    class="dashboard"
-    [class.dashboard--drag]="dragOver()"
-    (dragover)="$event.preventDefault(); dragOver.set(true)"
-    (dragleave)="dragOver.set(false)"
-    (drop)="onDrop($event)"
-  >
+  <section class="dashboard">
     <header class="dashboard__head">
       <div>
         <h1>AI Insights Dashboard</h1>
-        <p>Upload an Excel file, then ask the assistant for charts.</p>
+        <p>Ask the assistant about the NIPT results data — charts run live against BigQuery.</p>
       </div>
 
       <div class="toolbar">
-        @if (fileName()) {
-          <span class="badge badge--ok">● {{ fileName() }} · {{ rows().length }} rows</span>
-        } @else {
-          <span class="badge badge--idle">No data loaded</span>
-        }
-        <label class="btn">
-          Upload
-          <input type="file" accept=".xlsx,.xls,.csv" hidden (change)="onFileInput($event)" />
-        </label>
-        <button class="btn btn--ghost" (click)="loadSample()">Use sample</button>
+        <span class="badge badge--ok">● Live BigQuery data</span>
       </div>
     </header>
 
@@ -46,20 +31,14 @@
       </div>
     } @else {
       <div class="empty">
-        <div class="empty__icon">{{ hasData() ? '💬' : '📂' }}</div>
-        @if (hasData()) {
-          <h2>Ready when you are</h2>
-          <p>Ask for a chart to get started:</p>
-          <div class="empty__chips">
-            @for (s of suggestions; track s) {
-              <button class="chip" (click)="useSuggestion(s)">{{ s }}</button>
-            }
-          </div>
-        } @else {
-          <h2>Drop an Excel file here</h2>
-          <p>…or use the Upload button, or try the sample dataset.</p>
-          <button class="chip chip--primary" (click)="loadSample()">Load sample data</button>
-        }
+        <div class="empty__icon">💬</div>
+        <h2>Ready when you are</h2>
+        <p>Ask for a chart to get started:</p>
+        <div class="empty__chips">
+          @for (s of suggestions; track s) {
+            <button class="chip" (click)="useSuggestion(s)">{{ s }}</button>
+          }
+        </div>
       </div>
     }
   </section>

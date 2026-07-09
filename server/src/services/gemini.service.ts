@@ -1,4 +1,5 @@
-import type { GeminiRouteResult } from '../types.js';
+import type { SqlRouteResult } from '../types.js';
+import type { SchemaColumn } from '../schema/nipt.schema.js';
 
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
@@ -34,59 +35,45 @@ function extractText(response: any): string {
 }
 
 /**
- * Asks Gemini to decide whether the user wants a chart, and if so which
- * columns / aggregation / chart type to use. Returns structured JSON.
+ * Asks Gemini to translate a natural-language message into a read-only
+ * BigQuery SQL query against the fixed results table, plus chart hints.
  */
-export async function routeWithGemini(
+export async function generateSql(
   message: string,
-  categorical: string[],
-  numeric: string[],
-): Promise<GeminiRouteResult> {
-  const prompt = `You route requests for a data dashboard. The dataset has these columns:
-- categorical (use for groupBy): ${JSON.stringify(categorical)}
-- numeric (use for measure): ${JSON.stringify(numeric)}
+  columns: SchemaColumn[],
+  tableRef: string,
+): Promise<SqlRouteResult> {
+  const columnList = columns.map((c) => `${c.name} (${c.type})`).join('\n');
+
+  const prompt = `You translate requests for a data dashboard into BigQuery Standard SQL.
+The data lives in exactly one table: ${tableRef}
+Its columns (name and BigQuery type) are:
+${columnList}
+
 Decide if the user is asking to see a chart of this data.
-If yes: set wantsChart=true and choose groupBy (a categorical column),
-measure (a numeric column), an aggregation (sum, avg, count, min, or max),
-and chartType (bar, line, pie, or doughnut).
-You can also add optional data constraints:
-- filters: an array of {column, op, value} to filter rows before charting.
-  op can be: eq, neq, gt, gte, lt, lte, contains. Use the exact column name from the lists above.
-- sort: {column, direction} to sort rows. direction is "asc" or "desc".
-- limit: a number to limit how many rows are used (e.g. "top 10" → limit=10, with sort descending).
-Only include constraints when the user explicitly asks for filtering, sorting, or limiting.
-If the user is just chatting or asking something unrelated, set wantsChart=false.
+
+If yes: set wantsChart=true and write a single read-only SELECT query (BigQuery
+Standard SQL) against ${tableRef} that answers the request. Rules for the SQL:
+- Only ever query ${tableRef}. Never reference any other table.
+- Only a SELECT statement — no INSERT/UPDATE/DELETE/DDL of any kind.
+- The query must group/aggregate down to a small result set suitable for a chart:
+  alias the grouping column as "label" and the aggregated numeric column as "value".
+- Apply any filters, sorting, or row limits the user asked for directly in the SQL
+  (WHERE / ORDER BY / LIMIT).
+- Also choose a chartType (bar, line, pie, or doughnut) and a short human-readable title.
+
+If the user is just chatting or asking something that isn't a chart request,
+set wantsChart=false and omit sql/chartType/title.
+
 User message: "${message}"`;
 
   const responseSchema = {
     type: 'object',
     properties: {
       wantsChart: { type: 'boolean' },
-      groupBy: { type: 'string' },
-      measure: { type: 'string' },
-      agg: { type: 'string', enum: ['sum', 'avg', 'count', 'min', 'max'] },
+      sql: { type: 'string' },
       chartType: { type: 'string', enum: ['bar', 'line', 'pie', 'doughnut'] },
-      filters: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            column: { type: 'string' },
-            op: { type: 'string', enum: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'contains'] },
-            value: { type: 'string' },
-          },
-          required: ['column', 'op', 'value'],
-        },
-      },
-      sort: {
-        type: 'object',
-        properties: {
-          column: { type: 'string' },
-          direction: { type: 'string', enum: ['asc', 'desc'] },
-        },
-        required: ['column', 'direction'],
-      },
-      limit: { type: 'integer' },
+      title: { type: 'string' },
     },
     required: ['wantsChart'],
   };
@@ -100,12 +87,23 @@ User message: "${message}"`;
   };
 
   const json = extractText(await callGemini(body));
-  return JSON.parse(json) as GeminiRouteResult;
+  return JSON.parse(json) as SqlRouteResult;
 }
+
+const FALLBACK_SYSTEM_INSTRUCTION = `You are the chat assistant embedded in "AI Insights Dashboard", a tool backed
+live by a BigQuery table of NIPT (non-invasive prenatal testing) results.
+A separate step already tries to turn chart-shaped requests (e.g. "sample count by
+PASSFAIL") into a live BigQuery query and render it — you're only called for
+everything else: greetings, help requests, or things that didn't get parsed as a
+chart. If asked whether you're connected to BigQuery, say yes — the dashboard runs
+live SQL against BigQuery for chart requests — and suggest rephrasing as a chart
+request (e.g. group-by + a metric) rather than saying you have no connection at
+all. Keep answers brief; this is a small chat panel, not a full page.`;
 
 /** Plain text question to Gemini — no structured output. */
 export async function askGemini(message: string): Promise<string> {
   const body = {
+    systemInstruction: { parts: [{ text: FALLBACK_SYSTEM_INSTRUCTION }] },
     contents: [{ parts: [{ text: message }] }],
   };
   try {

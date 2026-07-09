@@ -8,10 +8,10 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^8.3.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

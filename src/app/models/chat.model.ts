@@ -1,45 +1,17 @@
 /**
- * Schema-only contract. The browser parses the Excel file, derives the column
- * schema, and sends it with each message. The backend returns either a text reply
- * or a *chart spec* (which columns / aggregation to use) — the browser then does
- * the aggregation locally and renders.
+ * The backend queries BigQuery directly and returns either a text reply or a
+ * chart that's already fully aggregated server-side — the browser just renders it.
  */
 
 export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut';
-export type AggType = 'sum' | 'avg' | 'count' | 'min' | 'max';
 
-export interface Filter {
-  column: string;
-  op: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains';
-  value: string | number;
-}
-
-export interface Sort {
-  column: string;
-  direction: 'asc' | 'desc';
-}
-
-export interface DataConstraints {
-  filters?: Filter[];
-  sort?: Sort;
-  limit?: number;
-}
-
-/** Column names split by type, derived from the uploaded data. */
-export interface Schema {
-  categorical: string[];
-  numeric: string[];
-}
-
-/** What the backend returns when it decides to chart. */
-export interface ChartSpec {
+/** A chart backed by a real BigQuery query result — data computed server-side. */
+export interface ChartResult {
   type: 'chart';
   chartType: ChartType;
-  groupBy: string;
-  measure: string;
-  agg: AggType;
   title: string;
-  constraints?: DataConstraints;
+  labels: string[];
+  values: number[];
 }
 
 export interface TextResponse {
@@ -47,18 +19,15 @@ export interface TextResponse {
   reply: string;
 }
 
-export type ChatResponse = ChartSpec | TextResponse;
+export type ChatResponse = ChartResult | TextResponse;
 
-/** A chart after local aggregation — this is what the chart card renders. */
+/** What the chart card renders — same shape as ChartResult minus the discriminant. */
 export interface RenderedChart {
   chartType: ChartType;
   title: string;
   labels: string[];
   values: number[];
 }
-
-/** One row of the parsed spreadsheet. */
-export type DataRow = Record<string, string | number | null>;
 
 /** A single bubble in the chat transcript. */
 export interface ChatMessage {
