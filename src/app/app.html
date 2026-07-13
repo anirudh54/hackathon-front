@@ -9,9 +9,6 @@
 
       <div class="toolbar">
         <span class="badge badge--ok">● Live BigQuery data</span>
-        @if (filtersActive()) {
-          <span class="badge badge--filter">⏳ Filters on</span>
-        }
         <button class="btn btn--ghost" (click)="runQc()" [disabled]="qcLoading()">
           {{ qcLoading() ? 'Loading…' : '🧪 QC view' }}
         </button>
@@ -20,39 +17,6 @@
         }
       </div>
     </header>
-
-    <!-- Global filters -->
-    <div class="filters">
-      <label>
-        From
-        <input type="date" [ngModel]="filterFrom()" (ngModelChange)="filterFrom.set($event)" name="from" />
-      </label>
-      <label>
-        To
-        <input type="date" [ngModel]="filterTo()" (ngModelChange)="filterTo.set($event)" name="to" />
-      </label>
-      <label>
-        Gender
-        <select [ngModel]="filterGender()" (ngModelChange)="filterGender.set($event)" name="gender">
-          <option value="all">All</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-        </select>
-      </label>
-      <label>
-        Batch
-        <select [ngModel]="filterBatch()" (ngModelChange)="filterBatch.set($event)" name="batch">
-          <option value="">All</option>
-          @for (b of batchOptions(); track b) {
-            <option [value]="b">{{ b }}</option>
-          }
-        </select>
-      </label>
-      <button class="btn" (click)="applyFilters()">Apply</button>
-      @if (filtersActive()) {
-        <button class="btn btn--ghost" (click)="resetFilters()">Reset</button>
-      }
-    </div>
 
     @if (kpis().length) {
       <div class="kpis">

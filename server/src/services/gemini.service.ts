@@ -58,15 +58,29 @@ The data lives in exactly one table: ${tableRef}
 Its columns (name and BigQuery type) are:
 ${columnList}
 ${historyBlock(history)}${lastSqlBlock}
-Decide if the user is asking to see a chart of this data.
+Classify the user's message into exactly one of three intents:
+1. CHART — the user explicitly asks to SEE a visualization: they say chart,
+   graph, plot, visualize, dashboard, or name a chart type (bar, line, pie,
+   doughnut, scatter, histogram), or ask to restyle/refine an existing chart.
+   Set wantsChart=true (and wantsData=false).
+2. DATA QUESTION — the user asks something answerable from the data but does
+   NOT ask for a chart (e.g. "what's the average AutoFF?", "how many samples
+   are in batch B02?", "which batch has the most grayzone samples?").
+   Set wantsChart=false, wantsData=true, and still write SQL that fetches the
+   numbers needed to answer. The output shape rules below are OPTIONAL for
+   this intent — just return a small aggregated result (LIMIT 100) with
+   clear column aliases.
+3. CHAT — greetings, help requests, or anything not about the data.
+   Set wantsChart=false and wantsData=false, and omit sql.
 
-If yes: set wantsChart=true and write a single read-only SELECT query (BigQuery
-Standard SQL) against ${tableRef} that answers the request. Rules for the SQL:
+For CHART and DATA QUESTION intents, write a single read-only SELECT query
+(BigQuery Standard SQL) against ${tableRef} that answers the request.
+Rules for the SQL:
 - Only ever query ${tableRef}. Never reference any other table.
 - Only a SELECT statement — no INSERT/UPDATE/DELETE/DDL of any kind.
 - Quote column names containing spaces with backticks (e.g. \`Total reads\`).
-- The query must aggregate down to a small result set, using EXACTLY one of
-  these output shapes:
+- For CHART intent, the query must aggregate down to a small result set,
+  using EXACTLY one of these output shapes:
   1. Single series (default): alias the grouping column as "label" and the
      aggregated numeric column as "value". chartType: bar, line, pie, or doughnut.
   2. Grouped/split series (the user asks to split/break down by a SECOND
@@ -82,10 +96,7 @@ Standard SQL) against ${tableRef} that answers the request. Rules for the SQL:
      chartType: bar.
 - Apply any filters, sorting, or row limits the user asked for directly in the SQL
   (WHERE / ORDER BY / LIMIT).
-- Also choose the chartType and a short human-readable title.
-
-If the user is just chatting or asking something that isn't a chart request,
-set wantsChart=false and omit sql/chartType/title.
+- For CHART intent, also choose the chartType and a short human-readable title.
 
 User message: "${message}"`;
 
@@ -93,6 +104,7 @@ User message: "${message}"`;
     type: 'object',
     properties: {
       wantsChart: { type: 'boolean' },
+      wantsData: { type: 'boolean' },
       sql: { type: 'string' },
       chartType: { type: 'string', enum: ['bar', 'line', 'pie', 'doughnut', 'scatter'] },
       title: { type: 'string' },
@@ -155,6 +167,39 @@ ${sample}
   } catch (e) {
     console.error('Insight generation failed (non-fatal):', e);
     return {};
+  }
+}
+
+/**
+ * Streams a conversational answer to a data question, grounded in the rows
+ * a BigQuery query just returned. Used when the user asks about the data
+ * without asking for a chart.
+ */
+export async function* analyzeDataStream(
+  message: string,
+  rows: Record<string, unknown>[],
+  history: HistoryEntry[] = [],
+): AsyncGenerator<string> {
+  const sample = JSON.stringify(rows.slice(0, 100));
+  const prompt = `You are the chat assistant of a dashboard over NIPT (prenatal screening) lab
+data stored in BigQuery. The user asked a question about the data, a query was
+just run, and these are the resulting rows (JSON):
+${sample}
+${historyBlock(history)}
+User question: "${message}"
+
+Answer the question conversationally using ONLY these rows. Lead with the
+direct answer (with concrete numbers), then at most 1-2 sentences of relevant
+context or a notable observation from the data. Plain text, no markdown
+tables. This is a small chat panel, so keep it brief.`;
+
+  const stream = await getClient().models.generateContentStream({
+    model: MODEL,
+    contents: prompt,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.text) yield chunk.text;
   }
 }
 

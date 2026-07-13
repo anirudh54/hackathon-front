@@ -7,7 +7,12 @@ import type {
   QueryRequest,
   SqlRouteResult,
 } from '../types.js';
-import { generateSql, generateInsight, askGeminiStream } from '../services/gemini.service.js';
+import {
+  generateSql,
+  generateInsight,
+  askGeminiStream,
+  analyzeDataStream,
+} from '../services/gemini.service.js';
 import { runQuery } from '../services/bigquery.service.js';
 import { NIPT_SCHEMA, getTableRef } from '../schema/nipt.schema.js';
 
@@ -132,6 +137,40 @@ router.post('/chat', async (req, res) => {
       send({
         event: 'error',
         message: `I couldn't run that chart — ${reason}\nTry rephrasing with a column from the table (e.g. Batch, AutoFF, Grayzone, chr21, Date).`,
+      });
+      finish();
+      return;
+    }
+  }
+
+  // Data question without a chart: run the SQL, then answer conversationally
+  // from the actual rows instead of rendering anything.
+  if (route?.wantsData && route.sql) {
+    try {
+      send({ event: 'status', message: 'Running BigQuery…' });
+      const rows = await runQuery(route.sql);
+
+      if (!rows.length) {
+        send({
+          event: 'error',
+          message: 'I ran a query for that but it returned no rows — try widening the question.',
+        });
+        finish();
+        return;
+      }
+
+      send({ event: 'status', message: 'Analyzing the result…' });
+      for await (const text of analyzeDataStream(message, rows, history)) {
+        send({ event: 'delta', text });
+      }
+      finish();
+      return;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error('Data analysis failed:', err);
+      send({
+        event: 'error',
+        message: `I couldn't analyze that — ${reason}\nTry rephrasing with a column from the table (e.g. Batch, AutoFF, Grayzone, chr21, Date).`,
       });
       finish();
       return;

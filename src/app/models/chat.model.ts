@@ -50,16 +50,6 @@ export type StreamEvent =
   | { event: 'error'; message: string }
   | { event: 'done' };
 
-/** Global dashboard filters injected into every chart's SQL on re-run. */
-export interface GlobalFilters {
-  /** YYYY-MM-DD, inclusive. */
-  dateFrom?: string;
-  dateTo?: string;
-  /** true = male samples only, false = female only. */
-  male?: boolean;
-  batch?: string;
-}
-
 /** A chart on the dashboard: the server result plus client-side state. */
 export interface RenderedChart extends Omit<ChartResult, 'type'> {
   id: string;

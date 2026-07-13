@@ -1,13 +1,7 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ChartCard } from './chart-card/chart-card';
-import {
-  ChartData,
-  ChartResult,
-  ChatMessage,
-  GlobalFilters,
-  RenderedChart,
-} from './models/chat.model';
+import { ChartData, ChartResult, ChatMessage, RenderedChart } from './models/chat.model';
 import { ChatService } from './services/chat.service';
 
 interface Kpi {
@@ -28,7 +22,7 @@ const LIVE_REFRESH_MS = 60_000;
 
 const GREETING: ChatMessage = {
   role: 'bot',
-  text: 'Hi! Ask me about the NIPT results data — e.g. "sample count by batch". You can also refine the last chart ("same thing as a pie chart") or click a bar to drill down.',
+  text: 'Hi! Ask me anything about the NIPT results data — e.g. "which batch has the most grayzone samples?" and I\'ll answer right here. Ask for a chart (e.g. "sample count by batch as a bar chart") and I\'ll put it on the dashboard.',
 };
 
 @Component({
@@ -53,18 +47,6 @@ export class App implements OnDestroy {
   protected readonly streaming = signal(false);
   protected readonly qcLoading = signal(false);
   protected readonly defaultsLoading = signal(false);
-
-  // ----- Global filters -----
-  protected readonly filterFrom = signal('');
-  protected readonly filterTo = signal('');
-  protected readonly filterGender = signal<'all' | 'male' | 'female'>('all');
-  protected readonly filterBatch = signal('');
-  protected readonly batchOptions = signal<string[]>([]);
-  /** The filters currently applied to every chart (empty = none). */
-  private readonly appliedFilters = signal<GlobalFilters>({});
-  protected readonly filtersActive = computed(
-    () => Object.keys(this.appliedFilters()).length > 0,
-  );
 
   /** Pinned charts first, otherwise keep insertion/drag order. */
   protected readonly sortedCharts = computed(() => {
@@ -110,11 +92,6 @@ export class App implements OnDestroy {
       }
     });
 
-    this.chat.batches().subscribe({
-      next: (batches) => this.batchOptions.set(batches),
-      error: () => {},
-    });
-
     if (!this.charts().length) this.loadDefaultCharts();
   }
 
@@ -129,7 +106,6 @@ export class App implements OnDestroy {
         });
         // Prepend, in case the user already asked for a chart while these loaded.
         this.charts.update((list) => [...rendered, ...list]);
-        if (this.filtersActive()) rendered.forEach((c) => this.refreshChart(c.id, { silent: true }));
         this.defaultsLoading.set(false);
       },
       error: (err) => {
@@ -218,11 +194,9 @@ export class App implements OnDestroy {
       pinned: false,
       live: false,
     };
-    this.charts.update((c) => [...c, chart]);
-    this.botSay(`Here's "${chart.title}" — added to your dashboard. 📊`, chart.followUps);
-
-    // A new chart should respect any active global filters right away.
-    if (this.filtersActive()) this.refreshChart(chart.id, { silent: true });
+    // A new chart replaces whatever was on the dashboard before.
+    this.charts.set([chart]);
+    this.botSay(`Here's "${chart.title}" — it's now on your dashboard. 📊`, chart.followUps);
   }
 
   private botSay(text: string, followUps?: string[]): void {
@@ -246,7 +220,7 @@ export class App implements OnDestroy {
     const chart = this.charts().find((c) => c.id === id);
     if (!chart) return;
 
-    this.chat.runSql(chart.sql, this.appliedFilters()).subscribe({
+    this.chat.runSql(chart.sql).subscribe({
       next: (data: ChartData) => this.patchChart(id, () => ({ ...data })),
       error: (err) => {
         if (!opts.silent) {
@@ -290,27 +264,6 @@ export class App implements OnDestroy {
         this.qcLoading.set(false);
       },
     });
-  }
-
-  // ----- Global filters -----
-  protected applyFilters(): void {
-    const filters: GlobalFilters = {};
-    if (this.filterFrom()) filters.dateFrom = this.filterFrom();
-    if (this.filterTo()) filters.dateTo = this.filterTo();
-    if (this.filterGender() !== 'all') filters.male = this.filterGender() === 'male';
-    if (this.filterBatch()) filters.batch = this.filterBatch();
-
-    this.appliedFilters.set(filters);
-    this.charts().forEach((c) => this.refreshChart(c.id));
-  }
-
-  protected resetFilters(): void {
-    this.filterFrom.set('');
-    this.filterTo.set('');
-    this.filterGender.set('all');
-    this.filterBatch.set('');
-    this.appliedFilters.set({});
-    this.charts().forEach((c) => this.refreshChart(c.id));
   }
 
   // ----- Drag-to-reorder -----

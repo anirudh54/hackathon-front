@@ -1,13 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import {
-  ChartData,
-  ChartResult,
-  ChatMessage,
-  GlobalFilters,
-  StreamEvent,
-} from '../models/chat.model';
+import { ChartData, ChartResult, ChatMessage, StreamEvent } from '../models/chat.model';
 
 /**
  * Talks to the Node backend. The backend queries BigQuery directly, so only
@@ -65,9 +59,9 @@ export class ChatService {
     });
   }
 
-  /** Re-runs a chart's stored SQL, optionally with global filters injected. */
-  runSql(sql: string, filters?: GlobalFilters): Observable<ChartData> {
-    return this.http.post<ChartData>('/api/query', { sql, filters });
+  /** Re-runs a chart's stored SQL. */
+  runSql(sql: string): Observable<ChartData> {
+    return this.http.post<ChartData>('/api/query', { sql });
   }
 
   /** The two canned charts shown when the dashboard is empty on load. */
@@ -78,10 +72,5 @@ export class ChatService {
   /** Canned QC chart: grayzone rate per batch with outlier highlighting. */
   qc(): Observable<ChartResult> {
     return this.http.get<ChartResult>('/api/qc');
-  }
-
-  /** Distinct batch ids for the global filter dropdown. */
-  batches(): Observable<string[]> {
-    return this.http.get<string[]>('/api/batches');
   }
 }

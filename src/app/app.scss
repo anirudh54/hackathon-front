@@ -70,55 +70,6 @@
     background: rgba(148, 163, 184, 0.08);
     border: 1px solid rgba(148, 163, 184, 0.2);
   }
-  &--filter {
-    color: #c4b5fd;
-    background: rgba(139, 92, 246, 0.12);
-    border: 1px solid rgba(139, 92, 246, 0.3);
-  }
-}
-
-/* Global filters bar */
-.filters {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
-
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 11px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  input,
-  select {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 7px 10px;
-    color: #f1f5f9;
-    font-size: 13px;
-    outline: none;
-    min-width: 130px;
-    color-scheme: dark;
-
-    &:focus {
-      border-color: #6366f1;
-    }
-  }
-
-  .btn {
-    padding: 8px 14px;
-  }
 }
 
 .btn {

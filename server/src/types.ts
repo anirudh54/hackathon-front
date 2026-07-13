@@ -23,7 +23,10 @@ export type ChatResponse = ChartResult | TextResponse;
 
 /** Structured output from Gemini's text-to-SQL call. */
 export interface SqlRouteResult {
+  /** The user explicitly asked for a chart/visualization. */
   wantsChart: boolean;
+  /** The user asked a data question but not for a chart — answer in prose. */
+  wantsData?: boolean;
   sql?: string;
   chartType?: ChartType;
   title?: string;
