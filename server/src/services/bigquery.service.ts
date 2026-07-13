@@ -31,7 +31,11 @@ function assertSafeSelect(sql: string): void {
   if (DISALLOWED_KEYWORDS.test(trimmed)) {
     throw new Error('Query contains a disallowed keyword.');
   }
-  if (!trimmed.includes(getTableRef())) {
+  const tableRef = getTableRef();
+  const hasTable =
+    trimmed.includes(tableRef) ||
+    trimmed.includes(`\`${tableRef}\``);
+  if (!hasTable) {
     throw new Error('Query must reference the configured table.');
   }
 }
