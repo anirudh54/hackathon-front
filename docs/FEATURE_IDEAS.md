@@ -1,5 +1,12 @@
 # Feature Ideas & Roadmap
 
+> **Status (2026-07-13): all 14 features below are implemented.** The chat
+> endpoint now streams server-sent events; charts carry their SQL, raw rows,
+> AI insight, and follow-up suggestions; cards support pin/remove/reorder,
+> refresh + live auto-refresh, table view + CSV export, SQL footer, and
+> click-to-drill-down; the dashboard persists to localStorage and has global
+> date/gender/batch filters plus a canned QC view with outlier highlighting.
+
 Proposed features for the AI Insights Dashboard, based on a review of the
 current codebase (Angular dashboard + chat shell, Express backend routing
 messages through Gemini text-to-SQL into BigQuery, single-series ECharts

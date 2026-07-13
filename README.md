@@ -25,7 +25,39 @@ else (greetings, help, meta questions) gets a normal Gemini chat reply.
    Open http://localhost:4200. Requests to `/api/*` are proxied to the backend
    (see `proxy.conf.json`).
 
-Ask something like *"sample count by PASSFAIL"* or click a suggestion chip.
+Ask something like *"sample count by batch"* or click a suggestion chip.
+
+## Features
+
+- **Streaming chat** — replies stream in as server-sent events, with live
+  progress lines ("Running BigQuery…") and real error reasons when a chart
+  request fails.
+- **Conversation memory** — recent turns and the last chart's SQL go back to
+  Gemini, so refinements like "same thing as a pie chart" work.
+- **Chart shapes** — bar, line, pie, doughnut, scatter (x/y), histograms
+  (bucketed in SQL), and grouped multi-series ("…split by gender").
+- **Per-card actions** — pin to front, remove, drag to reorder, re-run the
+  query, "live" auto-refresh every minute, chart/table toggle, CSV download,
+  and a collapsible footer showing the exact generated SQL.
+- **AI insight captions + follow-up chips** — a second Gemini pass summarizes
+  each result in one line and suggests next questions.
+- **Drill-down** — click a bar/slice to auto-issue a follow-up query for that
+  segment.
+- **Global filters** — date range / gender / batch, injected into every
+  chart's stored SQL and re-run across the dashboard.
+- **QC view** — canned grayzone-rate-by-batch chart with statistical outliers
+  highlighted in red.
+- **Persistence** — charts and the transcript survive refresh via
+  localStorage ("Clear" resets).
+
+### API
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/chat` | Chat, streamed as SSE (`status`/`delta`/`chart`/`error`/`done` events) |
+| `POST /api/query` | Re-run a chart's stored SQL, optionally with global filters |
+| `GET /api/qc` | Canned QC chart (grayzone rate by batch, outliers flagged) |
+| `GET /api/batches` | Distinct batch ids for the filter dropdown |
 
 ## How it works
 

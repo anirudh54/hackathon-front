@@ -1,0 +1,75 @@
+<div class="card" [class.card--pinned]="spec().pinned">
+  <div class="card__head">
+    <h3 class="card__title">
+      @if (spec().pinned) { <span class="card__pin-mark">📌</span> }
+      {{ spec().title }}
+    </h3>
+    <div class="card__actions">
+      <button
+        (click)="togglePin.emit()"
+        [class.card__action--on]="spec().pinned"
+        title="{{ spec().pinned ? 'Unpin' : 'Pin to front' }}"
+      >📌</button>
+      <button (click)="refreshChart.emit()" title="Re-run query">↻</button>
+      <button
+        (click)="toggleLive.emit()"
+        [class.card__action--on]="spec().live"
+        title="{{ spec().live ? 'Stop auto-refresh' : 'Auto-refresh every minute' }}"
+      >⏱</button>
+      <button
+        (click)="toggleTable()"
+        [class.card__action--on]="showTable()"
+        title="{{ showTable() ? 'Show chart' : 'Show data table' }}"
+      >▦</button>
+      <button (click)="downloadCsv()" title="Download CSV">⤓</button>
+      <button
+        class="card__action--sql"
+        (click)="showSql.set(!showSql())"
+        [class.card__action--on]="showSql()"
+        title="View generated SQL"
+      >SQL</button>
+      <button class="card__action--danger" (click)="remove.emit()" title="Remove chart">✕</button>
+    </div>
+  </div>
+
+  @if (spec().live) {
+    <span class="card__live">● live — refreshes every minute</span>
+  }
+
+  <div class="card__chart" [class.card__chart--hidden]="showTable()" #host></div>
+
+  @if (showTable()) {
+    <div class="card__table">
+      <table>
+        <thead>
+          <tr>
+            @for (col of spec().columns; track col) {
+              <th>{{ col }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of spec().rows; track $index) {
+            <tr>
+              @for (col of spec().columns; track col) {
+                <td>{{ row[col] }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (spec().insight) {
+    <p class="card__insight">💡 {{ spec().insight }}</p>
+  }
+
+  @if (showSql()) {
+    <pre class="card__sql">{{ spec().sql }}</pre>
+  }
+
+  @if (spec().chartType !== 'scatter' && !showTable()) {
+    <p class="card__hint">Click a data point to drill down</p>
+  }
+</div>

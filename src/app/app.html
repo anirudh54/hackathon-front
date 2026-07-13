@@ -9,8 +9,50 @@
 
       <div class="toolbar">
         <span class="badge badge--ok">● Live BigQuery data</span>
+        @if (filtersActive()) {
+          <span class="badge badge--filter">⏳ Filters on</span>
+        }
+        <button class="btn btn--ghost" (click)="runQc()" [disabled]="qcLoading()">
+          {{ qcLoading() ? 'Loading…' : '🧪 QC view' }}
+        </button>
+        @if (charts().length) {
+          <button class="btn btn--ghost" (click)="clearDashboard()">Clear</button>
+        }
       </div>
     </header>
+
+    <!-- Global filters -->
+    <div class="filters">
+      <label>
+        From
+        <input type="date" [ngModel]="filterFrom()" (ngModelChange)="filterFrom.set($event)" name="from" />
+      </label>
+      <label>
+        To
+        <input type="date" [ngModel]="filterTo()" (ngModelChange)="filterTo.set($event)" name="to" />
+      </label>
+      <label>
+        Gender
+        <select [ngModel]="filterGender()" (ngModelChange)="filterGender.set($event)" name="gender">
+          <option value="all">All</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </label>
+      <label>
+        Batch
+        <select [ngModel]="filterBatch()" (ngModelChange)="filterBatch.set($event)" name="batch">
+          <option value="">All</option>
+          @for (b of batchOptions(); track b) {
+            <option [value]="b">{{ b }}</option>
+          }
+        </select>
+      </label>
+      <button class="btn" (click)="applyFilters()">Apply</button>
+      @if (filtersActive()) {
+        <button class="btn btn--ghost" (click)="resetFilters()">Reset</button>
+      }
+    </div>
 
     @if (kpis().length) {
       <div class="kpis">
@@ -25,9 +67,30 @@
 
     @if (charts().length) {
       <div class="charts">
-        @for (chart of charts(); track $index) {
-          <app-chart-card [spec]="chart" />
+        @for (chart of sortedCharts(); track chart.id) {
+          <div
+            class="charts__cell"
+            draggable="true"
+            (dragstart)="onDragStart(chart.id)"
+            (dragover)="onDragOver($event)"
+            (drop)="onDrop(chart.id)"
+          >
+            <app-chart-card
+              [spec]="chart"
+              (remove)="removeChart(chart.id)"
+              (togglePin)="togglePin(chart.id)"
+              (toggleLive)="toggleLive(chart.id)"
+              (refreshChart)="refreshChart(chart.id)"
+              (drill)="drillInto(chart, $event)"
+            />
+          </div>
         }
+      </div>
+    } @else if (defaultsLoading()) {
+      <div class="empty">
+        <div class="empty__icon">📊</div>
+        <h2>Loading starter charts…</h2>
+        <p>Runs over the last month & samples per run by grayzone status.</p>
       </div>
     } @else {
       <div class="empty">
@@ -56,10 +119,20 @@
     <div class="chat__log">
       @for (m of messages(); track $index) {
         <div class="bubble" [class.bubble--user]="m.role === 'user'">{{ m.text }}</div>
+        @if (m.followUps?.length) {
+          <div class="followups">
+            @for (f of m.followUps; track f) {
+              <button class="chip chip--mini" (click)="useSuggestion(f)">{{ f }}</button>
+            }
+          </div>
+        }
       }
-      @if (loading()) {
+      @if (loading() && !streaming()) {
         <div class="bubble bubble--typing">
           <span></span><span></span><span></span>
+          @if (status()) {
+            <em class="bubble__status">{{ status() }}</em>
+          }
         </div>
       }
     </div>
