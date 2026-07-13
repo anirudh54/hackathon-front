@@ -117,12 +117,69 @@ User message: "${message}"`;
     model: MODEL,
     contents: prompt,
     config: {
+      // Deterministic routing/SQL — we want the same question to map to the
+      // same query every time, not creative variation.
+      temperature: 0,
       responseMimeType: 'application/json',
       responseSchema,
     },
   });
 
   return JSON.parse(response.text ?? '{}') as SqlRouteResult;
+}
+
+/**
+ * Given a query that BigQuery rejected, ask Gemini to repair it using the
+ * error text. Returns a corrected read-only SELECT, or null if it can't
+ * produce one. Lets a near-miss (wrong column name, bad cast) self-correct
+ * instead of failing straight to an error message.
+ */
+export async function repairSql(
+  message: string,
+  columns: SchemaColumn[],
+  tableRef: string,
+  brokenSql: string,
+  errorMessage: string,
+): Promise<string | null> {
+  const columnList = columns.map((c) => `\`${c.name}\` (${c.type})`).join('\n');
+  const prompt = `A BigQuery Standard SQL query you generated failed. Fix it.
+
+Table: ${tableRef}
+Its columns (name and BigQuery type) are:
+${columnList}
+
+Original user request: "${message}"
+
+The failing SQL:
+${brokenSql}
+
+BigQuery error:
+${errorMessage}
+
+Return a corrected single read-only SELECT against ${tableRef} only. Use exact
+column names from the list above (quote names containing spaces in backticks).
+Keep the same output-column aliases the original query used. Output ONLY the SQL.`;
+
+  try {
+    const response = await getClient().models.generateContent({
+      model: MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: { sql: { type: 'string' } },
+          required: ['sql'],
+        },
+      },
+    });
+    const { sql } = JSON.parse(response.text ?? '{}') as { sql?: string };
+    return sql?.trim() || null;
+  } catch (e) {
+    console.error('SQL repair failed (non-fatal):', e);
+    return null;
+  }
 }
 
 /**

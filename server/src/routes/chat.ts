@@ -12,11 +12,32 @@ import {
   generateInsight,
   askGeminiStream,
   analyzeDataStream,
+  repairSql,
 } from '../services/gemini.service.js';
 import { runQuery } from '../services/bigquery.service.js';
 import { NIPT_SCHEMA, getTableRef } from '../schema/nipt.schema.js';
 
 const router = Router();
+
+/**
+ * Runs SQL, and if BigQuery rejects it, asks Gemini to repair the query once
+ * using the error text before giving up. Returns the rows and the SQL that
+ * actually worked (so the chart stores the corrected query).
+ */
+async function runQueryWithRepair(
+  message: string,
+  sql: string,
+): Promise<{ rows: Record<string, unknown>[]; sql: string }> {
+  try {
+    return { rows: await runQuery(sql), sql };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    const fixed = await repairSql(message, NIPT_SCHEMA, getTableRef(), sql, reason);
+    if (!fixed || fixed === sql) throw err;
+    console.warn('Retrying with repaired SQL after error:', reason);
+    return { rows: await runQuery(fixed), sql: fixed };
+  }
+}
 
 /**
  * Turns raw BigQuery rows into chart-ready data based on the column aliases
@@ -103,12 +124,12 @@ router.post('/chat', async (req, res) => {
   if (route?.wantsChart && route.sql) {
     try {
       send({ event: 'status', message: 'Running BigQuery…' });
-      const rows = await runQuery(route.sql);
+      const { rows, sql: usedSql } = await runQueryWithRepair(message, route.sql);
 
       if (!rows.length) {
         send({
           event: 'error',
-          message: `The query ran but returned no rows — try widening the filters. SQL used:\n${route.sql}`,
+          message: `The query ran but returned no rows — try widening the filters. SQL used:\n${usedSql}`,
         });
         finish();
         return;
@@ -121,7 +142,7 @@ router.post('/chat', async (req, res) => {
         type: 'chart',
         chartType: route.chartType ?? 'bar',
         title: route.title ?? 'Chart',
-        sql: route.sql,
+        sql: usedSql,
         stacked: route.stacked,
         insight,
         followUps,
@@ -148,7 +169,7 @@ router.post('/chat', async (req, res) => {
   if (route?.wantsData && route.sql) {
     try {
       send({ event: 'status', message: 'Running BigQuery…' });
-      const rows = await runQuery(route.sql);
+      const { rows } = await runQueryWithRepair(message, route.sql);
 
       if (!rows.length) {
         send({
