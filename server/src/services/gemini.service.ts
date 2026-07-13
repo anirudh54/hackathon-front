@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import type { SqlRouteResult } from '../types.js';
 import type { SchemaColumn } from '../schema/nipt.schema.js';
 
-const MODEL = 'gemini-3.5-flash';
+const MODEL = 'gemini-2.5-flash';
 
 let client: GoogleGenAI | undefined;
 
@@ -18,7 +18,7 @@ function getClient(): GoogleGenAI {
     client = new GoogleGenAI({
       vertexai: true,
       project,
-      location: process.env.GCP_LOCATION ?? 'us-central1',
+      location: 'us-central1',
     });
   }
   return client;
