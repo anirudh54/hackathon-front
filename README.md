@@ -48,22 +48,25 @@ ask    ──▶  POST /api/chat { message }                    │
 
 ## BigQuery setup
 
-1. **Project + API**
+1. **Project + APIs**
    ```
    gcloud config set project YOUR_PROJECT_ID
-   gcloud services enable bigquery.googleapis.com
+   gcloud services enable bigquery.googleapis.com aiplatform.googleapis.com
    ```
    Needs billing enabled on the project (BigQuery has a free tier but still
-   requires a billing account attached).
+   requires a billing account attached). `aiplatform.googleapis.com` is Vertex
+   AI, used for Gemini calls.
 
-2. **Authenticate** (this is what `bigquery.service.ts` picks up automatically):
+2. **Authenticate** (this is what `bigquery.service.ts` and `gemini.service.ts`
+   both pick up automatically via Application Default Credentials — no API key
+   needed):
    ```
    gcloud auth application-default login
    ```
    This writes credentials to a well-known local path that the Node BigQuery
-   client finds with zero extra config. Your IAM user needs at least
-   `BigQuery Data Editor` (create dataset/table, load data) and
-   `BigQuery Job User` (run queries) on the project.
+   and Vertex AI clients find with zero extra config. Your IAM user needs at
+   least `BigQuery Data Editor` (create dataset/table, load data), `BigQuery
+   Job User` (run queries), and `Vertex AI User` (call Gemini) on the project.
 
 3. **Create the dataset:**
    ```
@@ -82,7 +85,7 @@ ask    ──▶  POST /api/chat { message }                    │
 
 5. **Fill in `server/.env`:**
    ```
-   GEMINI_API_KEY=your-actual-key
+   GCP_LOCATION=us-central1
    BQ_PROJECT_ID=your-project-id
    BQ_DATASET=your_dataset
    BQ_TABLE=your_table
@@ -119,9 +122,3 @@ npm run build   # output in dist/hackathon-front/browser/
 > Note: ECharts pushes the initial bundle up a bit, so the production budget
 > in `angular.json` is raised accordingly. If you want it smaller, import
 > ECharts via `echarts/core` and register only the bar/line/pie charts you use.
-
-
-You should not need to generate custom API keys in QwikLabs. Application Default Credentials, or ADC, is a secure, alternative method to standard API keys that uses the environment's existing identify for auth. Here's a doc re: configuring application default credentials:
-
-
- https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/start/gcp-auth?_gl=1*ikov69*_ga*MjAwMjQ0NjEyNi4xNzgzNTE2MTIz*_ga_WH2QY8WWF5*czE3ODM1MTYxMjIkbzEkZzEkdDE3ODM1MTY1NTMkajYwJGwwJGgw

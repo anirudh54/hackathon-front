@@ -1,37 +1,27 @@
+import { GoogleGenAI } from '@google/genai';
 import type { SqlRouteResult } from '../types.js';
 import type { SchemaColumn } from '../schema/nipt.schema.js';
 
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
+const MODEL = 'gemini-3.5-flash';
 
-function apiKey(): string {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error('GEMINI_API_KEY is not set');
-  return key;
-}
+let client: GoogleGenAI | undefined;
 
-/** Low-level call to the Gemini REST API. */
-async function callGemini(body: object): Promise<any> {
-  const res = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey(),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${text}`);
+/**
+ * Vertex AI client, authenticated via Application Default Credentials
+ * (`gcloud auth application-default login`) — the same identity BigQuery
+ * uses. No API key required.
+ */
+function getClient(): GoogleGenAI {
+  if (!client) {
+    const project = process.env.BQ_PROJECT_ID;
+    if (!project) throw new Error('BQ_PROJECT_ID is not set');
+    client = new GoogleGenAI({
+      vertexai: true,
+      project,
+      location: process.env.GCP_LOCATION ?? 'us-central1',
+    });
   }
-  return res.json();
-}
-
-/** Extracts the text string from a Gemini response. */
-function extractText(response: any): string {
-  const parts = response?.candidates?.[0]?.content?.parts;
-  if (!parts || parts.length === 0) return 'No response received.';
-  return parts[0].text ?? 'No response received.';
+  return client;
 }
 
 /**
@@ -78,16 +68,16 @@ User message: "${message}"`;
     required: ['wantsChart'],
   };
 
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
+  const response = await getClient().models.generateContent({
+    model: MODEL,
+    contents: prompt,
+    config: {
       responseMimeType: 'application/json',
       responseSchema,
     },
-  };
+  });
 
-  const json = extractText(await callGemini(body));
-  return JSON.parse(json) as SqlRouteResult;
+  return JSON.parse(response.text ?? '{}') as SqlRouteResult;
 }
 
 const FALLBACK_SYSTEM_INSTRUCTION = `You are the chat assistant embedded in "AI Insights Dashboard", a tool backed
@@ -102,12 +92,15 @@ all. Keep answers brief; this is a small chat panel, not a full page.`;
 
 /** Plain text question to Gemini — no structured output. */
 export async function askGemini(message: string): Promise<string> {
-  const body = {
-    systemInstruction: { parts: [{ text: FALLBACK_SYSTEM_INSTRUCTION }] },
-    contents: [{ parts: [{ text: message }] }],
-  };
   try {
-    return extractText(await callGemini(body));
+    const response = await getClient().models.generateContent({
+      model: MODEL,
+      contents: message,
+      config: {
+        systemInstruction: FALLBACK_SYSTEM_INSTRUCTION,
+      },
+    });
+    return response.text ?? 'No response received.';
   } catch (e: any) {
     return `Failed to get a response from Gemini: ${e.message}`;
   }
