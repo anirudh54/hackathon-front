@@ -119,3 +119,9 @@ npm run build   # output in dist/hackathon-front/browser/
 > Note: ECharts pushes the initial bundle up a bit, so the production budget
 > in `angular.json` is raised accordingly. If you want it smaller, import
 > ECharts via `echarts/core` and register only the bar/line/pie charts you use.
+
+
+You should not need to generate custom API keys in QwikLabs. Application Default Credentials, or ADC, is a secure, alternative method to standard API keys that uses the environment's existing identify for auth. Here's a doc re: configuring application default credentials:
+
+
+ https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/start/gcp-auth?_gl=1*ikov69*_ga*MjAwMjQ0NjEyNi4xNzgzNTE2MTIz*_ga_WH2QY8WWF5*czE3ODM1MTYxMjIkbzEkZzEkdDE3ODM1MTY1NTMkajYwJGwwJGgw
