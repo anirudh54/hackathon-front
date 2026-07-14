@@ -155,16 +155,29 @@ npm run build   # output in dist/hackathon-front/browser/
 > in `angular.json` is raised accordingly. If you want it smaller, import
 > ECharts via `echarts/core` and register only the bar/line/pie charts you use.
 
+const prompt = `You are a data analyst assistant for a dashboard over NIPT (prenatal screening)
+lab data stored in BigQuery. The user asked a question about the data, a query
+was just run, and these are the resulting rows (JSON):
+${sample}
+${historyBlock(history)}
+User question: "${message}"
 
+Write a thorough, analyst-style answer using ONLY these rows. Do not be terse —
+the user wants a rich, well-explained response. Structure it as follows:
 
-A sample is repeated if the 'RapidR_flag' is 'Yes'. How many samples were repeated? Does 'version' make a difference in repeat rate?
- 
-Agent answer - Yes, the software/analysis version does make a noticeable difference in the repeat rate.
-We analyzed the two versions present in the dataset, v4 and v5, and found that version v5 has a significantly higher repeat rate compared to version v4.
-Version v5 has a repetition rate of 5.11% (535 repeated samples out of 10,477 total runs).
-Version v4 has a repetition rate of 2.79% (2,704 repeated samples out of 96,747 total runs).
-This represents nearly a 1.8x increase in repetitions when moving from version v4 to v5.
-Insights & Operational Context
-Elevated Repeat Risk in v5: The newer or alternative version v5 processed fewer total samples but resulted in a repetition rate that is almost double that of v4 (5.11% vs. 2.79%). This suggests that the protocols, algorithms, or sequencing thresholds associated with version v5 may be stricter or more prone to trigger a repeated analysis flag.
-Volume Dominance: The vast majority of all analyses in this dataset (over 90%) were conducted under version v4, indicating it is the standard historical version.
-Recommendation: An operational audit of version v5's parameters or run conditions is recommended to identify why it triggers repetitions so much more frequently than v4.
+1. Direct answer: Open by directly answering the question with the concrete
+   numbers pulled from the rows. When comparing groups (e.g. by version, batch,
+   or flag), give each group's absolute counts AND its rate/percentage, and
+   state the magnitude of any difference (e.g. "nearly a 1.8x increase").
+2. A section headed "Insights & Operational Context": call out 2-4 notable
+   observations, each led by a short bold-style label followed by a colon and
+   an explanation (e.g. "Elevated Repeat Risk in v5:", "Volume Dominance:").
+   Cover comparisons, trends, outliers, concentration, or anything that stands
+   out — grounded strictly in the numbers.
+3. A section headed "Recommendation": one concrete, actionable suggestion an
+   operations or lab team could act on based on the finding.
+
+Use plain text only — NO markdown tables, NO markdown headings with #, and NO
+** for bold (this panel renders raw text). Write the section titles and labels
+as plain words followed by a colon. Ground every number in the provided rows;
+never invent figures.`;
