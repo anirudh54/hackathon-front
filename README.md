@@ -155,7 +155,7 @@ npm run build   # output in dist/hackathon-front/browser/
 > in `angular.json` is raised accordingly. If you want it smaller, import
 > ECharts via `echarts/core` and register only the bar/line/pie charts you use.
 
-const prompt = `You are a data analyst assistant for a dashboard over NIPT (prenatal screening)
+  const prompt = `You are a data analyst assistant for a dashboard over NIPT (prenatal screening)
 lab data stored in BigQuery. The user asked a question about the data, a query
 was just run, and these are the resulting rows (JSON):
 ${sample}
@@ -176,6 +176,14 @@ the user wants a rich, well-explained response. Structure it as follows:
    out — grounded strictly in the numbers.
 3. A section headed "Recommendation": one concrete, actionable suggestion an
    operations or lab team could act on based on the finding.
+
+Formatting (the panel renders raw text and preserves line breaks):
+- Separate the three parts with a BLANK LINE between them.
+- Put each section title ("Insights & Operational Context", "Recommendation")
+  on its own line, followed by a blank line.
+- Put each labeled insight on its OWN new line (start it with "- ").
+- Use plain text only — NO markdown tables, NO # headings, and NO ** for bold.
+Ground every number in the provided rows; never invent figures.`;
 
 Use plain text only — NO markdown tables, NO markdown headings with #, and NO
 ** for bold (this panel renders raw text). Write the section titles and labels
