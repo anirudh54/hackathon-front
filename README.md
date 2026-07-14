@@ -154,3 +154,17 @@ npm run build   # output in dist/hackathon-front/browser/
 > Note: ECharts pushes the initial bundle up a bit, so the production budget
 > in `angular.json` is raised accordingly. If you want it smaller, import
 > ECharts via `echarts/core` and register only the bar/line/pie charts you use.
+
+
+
+A sample is repeated if the 'RapidR_flag' is 'Yes'. How many samples were repeated? Does 'version' make a difference in repeat rate?
+ 
+Agent answer - Yes, the software/analysis version does make a noticeable difference in the repeat rate.
+We analyzed the two versions present in the dataset, v4 and v5, and found that version v5 has a significantly higher repeat rate compared to version v4.
+Version v5 has a repetition rate of 5.11% (535 repeated samples out of 10,477 total runs).
+Version v4 has a repetition rate of 2.79% (2,704 repeated samples out of 96,747 total runs).
+This represents nearly a 1.8x increase in repetitions when moving from version v4 to v5.
+Insights & Operational Context
+Elevated Repeat Risk in v5: The newer or alternative version v5 processed fewer total samples but resulted in a repetition rate that is almost double that of v4 (5.11% vs. 2.79%). This suggests that the protocols, algorithms, or sequencing thresholds associated with version v5 may be stricter or more prone to trigger a repeated analysis flag.
+Volume Dominance: The vast majority of all analyses in this dataset (over 90%) were conducted under version v4, indicating it is the standard historical version.
+Recommendation: An operational audit of version v5's parameters or run conditions is recommended to identify why it triggers repetitions so much more frequently than v4.
