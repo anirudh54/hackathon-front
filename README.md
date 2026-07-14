@@ -189,3 +189,9 @@ Use plain text only — NO markdown tables, NO markdown headings with #, and NO
 ** for bold (this panel renders raw text). Write the section titles and labels
 as plain words followed by a colon. Ground every number in the provided rows;
 never invent figures.`;
+
+
+ white-space: pre-wrap;
+  word-break: break-word;
+
+  
