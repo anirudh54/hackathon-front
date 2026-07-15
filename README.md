@@ -155,40 +155,32 @@ npm run build   # output in dist/hackathon-front/browser/
 > in `angular.json` is raised accordingly. If you want it smaller, import
 > ECharts via `echarts/core` and register only the bar/line/pie charts you use.
 
-  const prompt = `You are a data analyst assistant for a dashboard over NIPT (prenatal screening)
-lab data stored in BigQuery. The user asked a question about the data, a query
-was just run, and these are the resulting rows (JSON):
-${sample}
-${historyBlock(history)}
-User question: "${message}"
+Slide 3 — System Architecture
 
-Write a thorough, analyst-style answer using ONLY these rows. Do not be terse —
-the user wants a rich, well-explained response. Structure it as follows:
+"This shows how a question travels through the system. The user types a question in the browser, which is an Angular app. That request goes to our backend, an Express server running on Node. The backend doesn't try to answer the question itself — it hands it to Gemini 2.5 Flash, Google's AI model hosted on Vertex AI, whose job is to translate the plain-English question into a SQL query. That query runs against BigQuery, where we store about 107,000 rows of NIPT test results in a fixed table structure.
 
-1. Direct answer: Open by directly answering the question with the concrete
-   numbers pulled from the rows. When comparing groups (e.g. by version, batch,
-   or flag), give each group's absolute counts AND its rate/percentage, and
-   state the magnitude of any difference (e.g. "nearly a 1.8x increase").
-2. A section headed "Insights & Operational Context": call out 2-4 notable
-   observations, each led by a short bold-style label followed by a colon and
-   an explanation (e.g. "Elevated Repeat Risk in v5:", "Volume Dominance:").
-   Cover comparisons, trends, outliers, concentration, or anything that stands
-   out — grounded strictly in the numbers.
-3. A section headed "Recommendation": one concrete, actionable suggestion an
-   operations or lab team could act on based on the finding.
+The results don't just get dumped back all at once — they're streamed back to the browser piece by piece using Server-Sent Events, so the user sees status updates, then the answer, then a chart, as they become ready, about 107,000 rows of NIPT test results in a fixed table structure.
 
-Formatting (the panel renders raw text and preserves line breaks):
-- Separate the three parts with a BLANK LINE between them.
-- Put each section title ("Insights & Operational Context", "Recommendation")
-  on its own line, followed by a blank line.
-- Put each labeled insight on its OWN new line (start it with "- ").
-- Use plain text only — NO markdown tables, NO # headings, and NO ** for bold.
-Ground every number in the provided rows; never invent figures.`;
+The results don't just get dumped back all at once — they're streamed back to the browser piece by piece using Server-Sent Events, so the user sees status updates, then the answer, then a chart, as they become ready, rather than staring at a blank screen.
 
-Use plain text only — NO markdown tables, NO markdown headings with #, and NO
-** for bold (this panel renders raw text). Write the section titles and labels
-as plain words followed by a colon. Ground every number in the provided rows;
-never invent figures.`;
+Two things worth calling out: first, authentication is handled through Google's Application Default Credentials, so both Vertex AI and BigQuery trust the same identity — we're not juggling separate API keys. Second, we maintain one single schema definition for the NIPT data that's used both to tell Gemini what the data looks like when writing SQL, and to double check that any SQL it generates is safe and valid — so there's one source of truth instead of two definitions that could drift apart."
+
+Slide 4 — Request Lifecycle
+
+"This is what actually happens inside the backend for every chat message. When a message hits our /api/chat endpoint, the first thing we do is ask Gemini to classify what the user actually wants — is this a request for a chart, a data question that needs a written answer, or just casual conversation like a greeting?
+
+Depending on that classification, we branch into one of three paths:
+- If they want a chart, we generate SQL, run it through a safety guard that only allows read-only SELECT queries, shape the rows into chart-ready data, and have Gemini write a short caption plus suggested follow-up questions.
+- If it's a data question, we again run a safe query, but this time Gemini writes a full prose, analyst-style answer grounded in the actual returned data, streamed back word by word.
+- If it's just chat — like 'hello' or 'what can you do' — we skip the database entirely and Gemini just replies conversationally.
+
+The key design point here is that we never let the AI run arbitrary queries — every path that touches the database goes through the same guarded, read-only query execution, and everything is streamed back live rather than waiting for the whole response to finish."
+
+Slide 5 — Tech Stack
+
+"This is just our technology choices, layer by layer. Frontend is Angular 20, using their newest reactive 'signals' system instead of the older change-detection approach — that gives us fast, computed KPIs without extra boilerplate. For charts we use Apache ECharts, which covers everything we need — bar, line, pie, scatter, histograms.
+
+Communication between frontend and backend is Server-Sent Events, a lightweight streaming protocol — simpler than WebSockets since we only need one-directional streaming from server to client. The backend is Node with Express, written in TypeScript. For AI, we use Gemini 2.5 Flash via Vertex AI, and we specifically request structured JSON output from it rather than free text, which makes it much more reliable to parse. Data lives in BigQuery, accessed read-only. And again, everything authenticates through one shared credential setup rather than managing separate API keys for each service."
 
 
  white-space: pre-wrap;
